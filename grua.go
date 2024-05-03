@@ -113,6 +113,13 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(...any)) er
 }
 
 func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(...any)) error {
+	if len(m.migracionesAplicadas) == 0 {
+		registro := "No hay nada que hacer"
+		registrador(registro)
+
+		return nil
+	}
+
 	ultimoLote := obtenerLoteActual(m.migracionesAplicadas)
 
 	registro := fmt.Sprintf("Revirtiendo el ultimo lote de migraciones %d...", ultimoLote)
@@ -137,15 +144,24 @@ func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(...any)) e
 		delete(m.migracionesAplicadas, migracion.ID)
 	}
 
+	if len(migracionesRevertidas) == 0 {
+		registro = "No hay nada que hacer"
+		registrador(registro)
+
+		return nil
+	}
+
 	registro = "Actualizando la tabla de migraciones..."
 	registrador(registro)
 
-	resultado := m.bd.Delete(&migracionesRevertidas)
-	if resultado.Error != nil {
-		registro = "Error al actualizar la tabla de migraciones"
-		registrador(registro)
+	for _, migracionRevertida := range migracionesRevertidas {
+		resultado := m.bd.Where("id_migracion = ?", migracionRevertida.IdMigracion).Delete(&migracionRevertida)
+		if resultado.Error != nil {
+			registro = fmt.Sprint("Error al actualizar la tabla de migraciones")
+			registrador(registro)
 
-		return resultado.Error
+			return resultado.Error
+		}
 	}
 
 	return nil
