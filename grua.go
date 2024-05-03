@@ -61,12 +61,12 @@ func obtenerLoteActual(migracionesAplicadas map[string]migracionCompletada) int 
 	return loteActual
 }
 
-func (m *ManejadorDeMigraciones) AplicarMigraciones() ([]string, error) {
+func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(...any)) error {
 	var nuevasMigracionesAplicadas []migracionCompletada
 	loteActual := obtenerLoteActual(m.migracionesAplicadas)
 
 	registro := fmt.Sprintf("Aplicando el nuevo lote de migraciones %d...", loteActual+1)
-	registros := []string{registro}
+	registrador(registro)
 
 	for _, migracion := range m.migraciones {
 		if _, ok := m.migracionesAplicadas[migracion.ID]; ok {
@@ -74,12 +74,12 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones() ([]string, error) {
 		}
 
 		registro = fmt.Sprintf("Aplicando la migracion %s: %s", migracion.ID, migracion.Descripcion)
-		registros = append(registros, registro)
+		registrador(registro)
 		if err := migracion.Aplicar(m.bd); err != nil {
 			registro = fmt.Sprintf("Error al aplicar la migración %s", migracion.ID)
-			registros = append(registros, registro)
+			registrador(registro)
 
-			return registros, err
+			return err
 		}
 
 		nuevaMigracionAplicada := migracionCompletada{
@@ -93,30 +93,30 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones() ([]string, error) {
 
 	if len(nuevasMigracionesAplicadas) == 0 {
 		registro = "No hay nada que hacer"
-		registros = append(registros, registro)
+		registrador(registro)
 
-		return registros, nil
+		return nil
 	}
 
 	registro = "Actualizando la tabla de migraciones..."
-	registros = append(registros, registro)
+	registrador(registro)
 
 	resultado := m.bd.Create(nuevasMigracionesAplicadas)
 	if resultado.Error != nil {
 		registro := "Error al actualizar la tabla de migraciones"
-		registros = append(registros, registro)
+		registrador(registro)
 
-		return registros, resultado.Error
+		return resultado.Error
 	}
 
-	return registros, nil
+	return nil
 }
 
-func (m *ManejadorDeMigraciones) RevertirMigraciones() ([]string, error) {
+func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(...any)) error {
 	ultimoLote := obtenerLoteActual(m.migracionesAplicadas)
 
 	registro := fmt.Sprintf("Revirtiendo el ultimo lote de migraciones %d...", ultimoLote)
-	registros := []string{registro}
+	registrador(registro)
 
 	var migracionesRevertidas []migracionCompletada
 
@@ -126,11 +126,11 @@ func (m *ManejadorDeMigraciones) RevertirMigraciones() ([]string, error) {
 		}
 
 		registro = fmt.Sprintf("Revirtiendo la migración %s: %s", migracion.ID, migracion.Descripcion)
-		registros = append(registros, registro)
+		registrador(registro)
 
 		if err := migracion.Revertir(m.bd); err != nil {
 			registro = fmt.Sprintf("Error al revertir la migración %s", migracion.ID)
-			return registros, err
+			return err
 		}
 
 		migracionesRevertidas = append(migracionesRevertidas, m.migracionesAplicadas[migracion.ID])
@@ -138,15 +138,15 @@ func (m *ManejadorDeMigraciones) RevertirMigraciones() ([]string, error) {
 	}
 
 	registro = "Actualizando la tabla de migraciones..."
-	registros = append(registros, registro)
+	registrador(registro)
 
 	resultado := m.bd.Delete(&migracionesRevertidas)
 	if resultado.Error != nil {
 		registro = "Error al actualizar la tabla de migraciones"
-		registros = append(registros, registro)
+		registrador(registro)
 
-		return registros, resultado.Error
+		return resultado.Error
 	}
 
-	return registros, nil
+	return nil
 }
