@@ -25,7 +25,7 @@ type migracionCompletada struct {
 	Lote        int
 }
 
-func NuevoManejadorDeMigraciones(bd *gorm.DB) *ManejadorDeMigraciones {
+func Nuevo(bd *gorm.DB) *ManejadorDeMigraciones {
 	if !bd.Migrator().HasTable(&migracionCompletada{}) {
 		bd.AutoMigrate(&migracionCompletada{})
 	}
