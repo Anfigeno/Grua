@@ -2,6 +2,7 @@ package grua
 
 import (
 	"fmt"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -13,6 +14,8 @@ type ManejadorDeMigraciones struct {
 	bd                   *gorm.DB
 	migracionesAplicadas map[string]migracionCompletada
 	migraciones          []Migracion
+	RutaMigraciones      string
+	Registrador          func(registro string)
 }
 
 /*
@@ -51,6 +54,10 @@ func Nuevo(bd *gorm.DB) *ManejadorDeMigraciones {
 		bd:                   bd,
 		migracionesAplicadas: migracionesAplicadasMap,
 		migraciones:          []Migracion{},
+		RutaMigraciones:      "./pkg/bd/migraciones",
+		Registrador: func(registro string) {
+			log.Print(registro)
+		},
 	}
 }
 
@@ -73,12 +80,12 @@ func obtenerLoteActual(migracionesAplicadas map[string]migracionCompletada) int 
 
 // Aplica las migraciones pendientes
 // Registra cada paso de la aplicación usando la función registrador
-func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(registro string)) error {
+func (m *ManejadorDeMigraciones) AplicarMigraciones() error {
 	var nuevasMigracionesAplicadas []migracionCompletada
 	loteActual := obtenerLoteActual(m.migracionesAplicadas)
 
 	registro := fmt.Sprintf("Aplicando el nuevo lote de migraciones %d...", loteActual+1)
-	registrador(registro)
+	m.Registrador(registro)
 
 	for _, migracion := range m.migraciones {
 		if _, ok := m.migracionesAplicadas[migracion.ID]; ok {
@@ -86,10 +93,10 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(registro st
 		}
 
 		registro = fmt.Sprintf("Aplicando la migracion %s: %s", migracion.ID, migracion.Descripcion)
-		registrador(registro)
+		m.Registrador(registro)
 		if err := migracion.Aplicar(m.bd); err != nil {
 			registro = fmt.Sprintf("Error al aplicar la migración %s", migracion.ID)
-			registrador(registro)
+			m.Registrador(registro)
 
 			return err
 		}
@@ -105,18 +112,18 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(registro st
 
 	if len(nuevasMigracionesAplicadas) == 0 {
 		registro = "No hay nada que hacer"
-		registrador(registro)
+		m.Registrador(registro)
 
 		return nil
 	}
 
 	registro = "Actualizando la tabla de migraciones..."
-	registrador(registro)
+	m.Registrador(registro)
 
 	resultado := m.bd.Create(nuevasMigracionesAplicadas)
 	if resultado.Error != nil {
 		registro := "Error al actualizar la tabla de migraciones"
-		registrador(registro)
+		m.Registrador(registro)
 
 		return resultado.Error
 	}
@@ -126,10 +133,10 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(registro st
 
 // Revierte el ultimo lote de migraciones
 // Registra cada paso de la aplicación usando la función registrador
-func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(registro string)) error {
+func (m *ManejadorDeMigraciones) RevertirMigraciones() error {
 	if len(m.migracionesAplicadas) == 0 {
 		registro := "No hay nada que hacer"
-		registrador(registro)
+		m.Registrador(registro)
 
 		return nil
 	}
@@ -137,7 +144,7 @@ func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(registro s
 	ultimoLote := obtenerLoteActual(m.migracionesAplicadas)
 
 	registro := fmt.Sprintf("Revirtiendo el ultimo lote de migraciones %d...", ultimoLote)
-	registrador(registro)
+	m.Registrador(registro)
 
 	var migracionesRevertidas []migracionCompletada
 
@@ -147,7 +154,7 @@ func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(registro s
 		}
 
 		registro = fmt.Sprintf("Revirtiendo la migración %s: %s", migracion.ID, migracion.Descripcion)
-		registrador(registro)
+		m.Registrador(registro)
 
 		if err := migracion.Revertir(m.bd); err != nil {
 			registro = fmt.Sprintf("Error al revertir la migración %s", migracion.ID)
@@ -160,19 +167,19 @@ func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(registro s
 
 	if len(migracionesRevertidas) == 0 {
 		registro = "No hay nada que hacer"
-		registrador(registro)
+		m.Registrador(registro)
 
 		return nil
 	}
 
 	registro = "Actualizando la tabla de migraciones..."
-	registrador(registro)
+	m.Registrador(registro)
 
 	for _, migracionRevertida := range migracionesRevertidas {
 		resultado := m.bd.Where("id_migracion = ?", migracionRevertida.IdMigracion).Delete(&migracionRevertida)
 		if resultado.Error != nil {
 			registro = fmt.Sprint("Error al actualizar la tabla de migraciones")
-			registrador(registro)
+			m.Registrador(registro)
 
 			return resultado.Error
 		}
