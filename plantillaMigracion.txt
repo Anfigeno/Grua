@@ -1,0 +1,35 @@
+package NombrePaquete
+
+import (
+  "gorm.io/gorm"
+  "github.com/Anfigeno/Grua"
+) 
+
+/* Recuerda cambiar el nombre */
+type Esquema struct {
+	gorm.Model
+	/* Aquí define tu esquema */
+}
+
+func NombreMigracion() grua.Migracion {
+	return grua.Migracion{
+		ID:          "NombreConMarcaDeTiempoMigracion",
+		Descripcion: "/* Aquí va la descripción */",
+		Aplicar: func(bd *gorm.DB) error {
+			/* Puedes cambiar lo que quieras aquí */
+			err := bd.AutoMigrate(&Esquema{})
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		Revertir: func(bd *gorm.DB) error {
+			/* Puedes cambiar lo que quieras aquí */
+			err := bd.Migrator().DropTable(&Esquema{})
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+}
