@@ -61,7 +61,7 @@ func obtenerLoteActual(migracionesAplicadas map[string]migracionCompletada) int 
 	return loteActual
 }
 
-func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(...any)) error {
+func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(registro string)) error {
 	var nuevasMigracionesAplicadas []migracionCompletada
 	loteActual := obtenerLoteActual(m.migracionesAplicadas)
 
@@ -112,7 +112,7 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(...any)) er
 	return nil
 }
 
-func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(...any)) error {
+func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(registro string)) error {
 	if len(m.migracionesAplicadas) == 0 {
 		registro := "No hay nada que hacer"
 		registrador(registro)
