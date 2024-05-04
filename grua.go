@@ -6,12 +6,18 @@ import (
 	"gorm.io/gorm"
 )
 
+/*
+Representa un manejador de migraciones de base de datos
+*/
 type ManejadorDeMigraciones struct {
 	bd                   *gorm.DB
 	migracionesAplicadas map[string]migracionCompletada
 	migraciones          []Migracion
 }
 
+/*
+Representa una migracion de base de datos con métodos para aplicar y revertir
+*/
 type Migracion struct {
 	ID          string
 	Descripcion string
@@ -25,6 +31,9 @@ type migracionCompletada struct {
 	Lote        int
 }
 
+/*
+Crea una nueva instancia de ManejadorDeMigraciones
+*/
 func Nuevo(bd *gorm.DB) *ManejadorDeMigraciones {
 	if !bd.Migrator().HasTable(&migracionCompletada{}) {
 		bd.AutoMigrate(&migracionCompletada{})
@@ -45,6 +54,7 @@ func Nuevo(bd *gorm.DB) *ManejadorDeMigraciones {
 	}
 }
 
+// Añade migraciones al administrador de migraciones
 func (m *ManejadorDeMigraciones) AñadirMigraciones(migraciones ...Migracion) {
 	for _, migracion := range migraciones {
 		m.migraciones = append(m.migraciones, migracion)
@@ -61,6 +71,8 @@ func obtenerLoteActual(migracionesAplicadas map[string]migracionCompletada) int 
 	return loteActual
 }
 
+// Aplica las migraciones pendientes
+// Registra cada paso de la aplicación usando la función registrador
 func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(registro string)) error {
 	var nuevasMigracionesAplicadas []migracionCompletada
 	loteActual := obtenerLoteActual(m.migracionesAplicadas)
@@ -112,6 +124,8 @@ func (m *ManejadorDeMigraciones) AplicarMigraciones(registrador func(registro st
 	return nil
 }
 
+// Revierte el ultimo lote de migraciones
+// Registra cada paso de la aplicación usando la función registrador
 func (m *ManejadorDeMigraciones) RevertirMigraciones(registrador func(registro string)) error {
 	if len(m.migracionesAplicadas) == 0 {
 		registro := "No hay nada que hacer"
